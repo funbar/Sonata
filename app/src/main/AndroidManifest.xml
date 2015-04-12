@@ -20,6 +20,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service android:enabled="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Device Listener"
+            android:name=".bluetooth.AlarmService" />
     </application>
 
 </manifest>

@@ -1,38 +1,50 @@
 package com.teamrbm.alarmapp.activity;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.util.Calendar;
+import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
+import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
+import android.content.ServiceConnection;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.ParcelUuid;
+import android.os.IBinder;
+import android.speech.RecognizerIntent;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
-import android.widget.TextView;
+import android.widget.DatePicker;
+import android.widget.TimePicker;
 import android.widget.Toast;
 
 import com.teamrbm.alarmapp.R;
+import com.teamrbm.alarmapp.bluetooth.AlarmService;
+import com.teamrbm.alarmapp.helper.C;
 
 public class VoiceActivity extends Activity {
-    private static final String TAG = "bluetooth1";
 
-    Button btnOn, btnOff;
+    Button btnSnooze, btnVoiceOff, btnTime;
 
-    private BluetoothAdapter btAdapter = null;
-    private BluetoothSocket btSocket = null;
-    private OutputStream outStream = null;
+    TimePicker mTimePicker;
+
+    DatePicker mDatePicker;
+
+    //private BluetoothAdapter btAdapter = null;
+    //private BluetoothSocket btSocket = null;
+    //private OutputStream outStream = null;
+
+    private boolean isBound = false;
+
+    private boolean isRegisterReceived = false;
+
+    private static final int SPEECH_REQUEST_CODE = 0;
+
+    private static AlarmService mAlarmService;
 
     // SPP UUID service
     private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
@@ -43,173 +55,267 @@ public class VoiceActivity extends Activity {
     //private static final UUID MY_UUID = UUID.fromString("0000110a-0000-1000-8000-00805F9B34FB");
 
     // MAC-address of Bluetooth module (you must edit this line)
-    private static String address = "20:15:03:04:13:32";
+    // private static String address = "20:15:03:04:13:32";
 
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.activity_voice);
+        setContentView(R.layout.activity_main);
 
-        btnOn = (Button) findViewById(R.id.btnOn);
-        btnOff = (Button) findViewById(R.id.btnOff);
+        btnSnooze = (Button) findViewById(R.id.btnOn);
 
-        btAdapter = BluetoothAdapter.getDefaultAdapter();
-        checkBTState();
+        btnVoiceOff = (Button) findViewById(R.id.btnOff);
 
-        btnOn.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                sendData("1");
-                Toast.makeText(getBaseContext(), "Turn on LED", Toast.LENGTH_SHORT).show();
-            }
-        });
+        btnTime = (Button) findViewById(R.id.btnSet);
 
-        btnOff.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                sendData("0");
-                Toast.makeText(getBaseContext(), "Turn off LED", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
+        mDatePicker = (DatePicker) findViewById(R.id.datePicker2);
 
-    private BluetoothSocket createBluetoothSocket(BluetoothDevice device) throws IOException {
-        if(Build.VERSION.SDK_INT >= 10){
-            try {
-                final Method  m = device.getClass().getMethod("createInsecureRfcommSocketToServiceRecord", new Class[] { UUID.class });
-                return (BluetoothSocket) m.invoke(device, MY_UUID);
-            } catch (Exception e) {
-                Log.e(TAG, "Could not create Insecure RFComm Connection",e);
-            }
-        }
-        return  device.createRfcommSocketToServiceRecord(MY_UUID);
+        mTimePicker = (TimePicker) findViewById(R.id.timePicker2);
+
+        doBindService();
+
+        //btAdapter = BluetoothAdapter.getDefaultAdapter();
+
     }
 
     @Override
     public void onResume() {
         super.onResume();
 
-        Log.d(TAG, "...onResume - try connect...");
+        Log.d(C.TAG, "...onResume - try connect...");
 
         // Set up a pointer to the remote node using it's address.
-        BluetoothDevice device = btAdapter.getRemoteDevice(address);
-
-        Method getUuidsMethod = null;
-        try {
-            getUuidsMethod = BluetoothAdapter.class.getDeclaredMethod("getUuids", null);
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        }
-
-        ParcelUuid[] uuids = new ParcelUuid[0];
-        try {
-            uuids = (ParcelUuid[]) getUuidsMethod.invoke(btAdapter, null);
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-        }
-
-        for (ParcelUuid uuid: uuids) {
-            Log.d(TAG, "UUID: " + uuid.getUuid().toString());
-        }
-
+        //BluetoothDevice device = btAdapter.getRemoteDevice(address);
 
         // Two things are needed to make a connection:
         //   A MAC address, which we got above.
         //   A Service ID or UUID.  In this case we are using the
         //     UUID for SPP.
 
-        try {
-            btSocket = createBluetoothSocket(device);
-        } catch (IOException e1) {
-            errorExit("Fatal Error", "In onResume() and socket create failed: " + e1.getMessage() + ".");
-        }
-
-        // Discovery is resource intensive.  Make sure it isn't going on
-        // when you attempt to connect and pass your message.
-        btAdapter.cancelDiscovery();
-
-        // Establish the connection.  This will block until it connects.
-        Log.d(TAG, "...Connecting...");
-        try {
-            btSocket.connect();
-            Log.d(TAG, "...Connection ok...");
-        } catch (IOException e) {
-            try {
-                btSocket.close();
-            } catch (IOException e2) {
-                errorExit("Fatal Error", "In onResume() and unable to close socket during connection failure" + e2.getMessage() + ".");
-            }
-        }
-
-        // Create a data stream so we can talk to server.
-        Log.d(TAG, "...Create Socket...");
-
-        try {
-            outStream = btSocket.getOutputStream();
-        } catch (IOException e) {
-            errorExit("Fatal Error", "In onResume() and output stream creation failed:" + e.getMessage() + ".");
-        }
+//        try {
+//            btSocket = createBluetoothSocket(device);
+//        } catch (IOException e1) {
+//            errorExit("Fatal Error", "In onResume() and socket create failed: " + e1.getMessage() + ".");
+//        }
+//
+//        // Discovery is resource intensive.  Make sure it isn't going on
+//        // when you attempt to connect and pass your message.
+//        btAdapter.cancelDiscovery();
+//
+//        // Establish the connection.  This will block until it connects.
+//        Log.d(C.TAG, "...Connecting...");
+//        try {
+//            btSocket.connect();
+//            Log.d(C.TAG, "...Connection ok...");
+//        } catch (IOException e) {
+//            try {
+//                btSocket.close();
+//            } catch (IOException e2) {
+//                errorExit("Fatal Error", "In onResume() and unable to close socket during connection failure" + e2.getMessage() + ".");
+//            }
+//        }
+//
+//        // Create a data stream so we can talk to server.
+//        Log.d(C.TAG, "...Create Socket...");
+//
+//        try {
+//            outStream = btSocket.getOutputStream();
+//        } catch (IOException e) {
+//            errorExit("Fatal Error", "In onResume() and output stream creation failed:" + e.getMessage() + ".");
+//        }
     }
+
+//    @Override
+//    public void onPause() {
+//        super.onPause();
+//
+//        Log.d(C.TAG, "...In onPause()...");
+//
+//        if (outStream != null) {
+//            try {
+//                outStream.flush();
+//            } catch (IOException e) {
+//                errorExit("Fatal Error", "In onPause() and failed to flush output stream: " + e.getMessage() + ".");
+//            }
+//        }
+//
+//        try     {
+//            btSocket.close();
+//        } catch (IOException e2) {
+//            errorExit("Fatal Error", "In onPause() and failed to close socket." + e2.getMessage() + ".");
+//        }
+//    }
 
     @Override
     public void onPause() {
+
+//        if (mBluetooth != null) {
+//            if (mBluetooth.isDiscovering()) {
+//                mBluetooth.cancelDiscovery();
+//                //mBluetooth.DLeScan(this);
+//            }
+//        }
+
         super.onPause();
 
-        Log.d(TAG, "...In onPause()...");
+    }
 
-        if (outStream != null) {
-            try {
-                outStream.flush();
-            } catch (IOException e) {
-                errorExit("Fatal Error", "In onPause() and failed to flush output stream: " + e.getMessage() + ".");
+    @Override
+    protected void onStop() {
+
+        if (isRegisterReceived) {
+            isRegisterReceived = false;
+        }
+
+        super.onStop();
+
+    }
+
+    @Override
+    public void onDestroy() {
+
+        super.onDestroy();
+
+        doUnbindService();
+
+    }
+
+    private ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+
+            try
+            {
+                mAlarmService = ((AlarmService.BluetoothBinder)service).getService();
+
+                Toast.makeText(getApplicationContext(), "Service connected", Toast.LENGTH_SHORT).show();
+
+                isRegisterReceived = true;
+
+                mAlarmService.checkBTState();
+
+//                btnSnooze.setOnClickListener(new OnClickListener() {
+//                    public void onClick(View v) {
+//
+//                        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+//                        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+//                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+//                        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+//                        intent.putExtra(RecognizerIntent.EXTRA_PROMPT,
+//                                "Prompt");
+//                        try {
+//                            startActivityForResult(intent, SPEECH_REQUEST_CODE);
+//                        } catch (ActivityNotFoundException a) {
+//                            Toast.makeText(getApplicationContext(),
+//                                    "Not supported",
+//                                    Toast.LENGTH_SHORT).show();
+//                        }
+//
+//                    }
+//                });
+
+                btnSnooze.setOnClickListener(new OnClickListener() {
+                    public void onClick(View v) {
+                        mAlarmService.sendData("0");
+                        Toast.makeText(getBaseContext(), "Turn on LED", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+
+                btnVoiceOff.setOnClickListener(new OnClickListener() {
+                    public void onClick(View v) {
+
+                        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+                        intent.putExtra(RecognizerIntent.EXTRA_PROMPT,
+                                "Prompt");
+                        try {
+                            startActivityForResult(intent, SPEECH_REQUEST_CODE);
+                        } catch (ActivityNotFoundException a) {
+                            Toast.makeText(getApplicationContext(),
+                                    "Not supported",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                        Toast.makeText(getBaseContext(), "Turn off LED", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+                btnTime.setOnClickListener(new OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Calendar calendar = Calendar.getInstance();
+                        calendar.set(mDatePicker.getYear(), mDatePicker.getMonth(), mDatePicker.getDayOfMonth(),
+                                mTimePicker.getCurrentHour(), mTimePicker.getCurrentMinute(), 0);
+
+                        long startTime = calendar.getTimeInMillis();
+
+                        if (mAlarmService != null)
+                            mAlarmService.setAlarmTime(startTime);
+                    }
+                });
+
             }
-        }
-
-        try     {
-            btSocket.close();
-        } catch (IOException e2) {
-            errorExit("Fatal Error", "In onPause() and failed to close socket." + e2.getMessage() + ".");
-        }
-    }
-
-    private void checkBTState() {
-        // Check for Bluetooth support and then check to make sure it is turned on
-        // Emulator doesn't support Bluetooth and will return null
-        if(btAdapter==null) {
-            errorExit("Fatal Error", "Bluetooth not support");
-        } else {
-            if (btAdapter.isEnabled()) {
-                Log.d(TAG, "...Bluetooth ON...");
-            } else {
-                //Prompt user to turn on Bluetooth
-                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                startActivityForResult(enableBtIntent, 1);
+            catch (NullPointerException n)
+            {
+                Toast.makeText(VoiceActivity.this, "Activity cannot connect to service.", Toast.LENGTH_SHORT).show();
             }
+
+            Toast.makeText(VoiceActivity.this, "Activity connected to service.", Toast.LENGTH_SHORT).show();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+
+            mAlarmService = null;
+
+            Toast.makeText(VoiceActivity.this, "Activity disconnected from service.", Toast.LENGTH_SHORT).show();
+
+        }
+    };
+
+    private void doBindService() {
+
+        //the service is bound
+        bindService(new Intent(VoiceActivity.this, AlarmService.class), mConnection, Context.BIND_AUTO_CREATE);
+
+        isBound = true;
+
+    }
+
+    private void doUnbindService() {
+
+        if (isBound) {
+            unbindService(mConnection);
+            isBound = false;
         }
     }
 
-    private void errorExit(String title, String message){
-        Toast.makeText(getBaseContext(), title + " - " + message, Toast.LENGTH_LONG).show();
-        finish();
-    }
+    // This callback is invoked when the Speech Recognizer returns.
+// This is where you process the intent and extract the speech text from the intent.
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode,
+                                    Intent data) {
+        if (requestCode == SPEECH_REQUEST_CODE && resultCode == RESULT_OK) {
 
-    private void sendData(String message) {
-        byte[] msgBuffer = message.getBytes();
+            List<String> results = data.getStringArrayListExtra(
+                    RecognizerIntent.EXTRA_RESULTS);
+            String spokenText = results.get(0);
+            Toast.makeText(getApplicationContext(), spokenText, Toast.LENGTH_SHORT).show();
 
-        Log.d(TAG, "...Send data: " + message + "...");
-
-        try {
-            outStream.write(msgBuffer);
-        } catch (IOException e) {
-            String msg = "In onResume() and an exception occurred during write: " + e.getMessage();
-            if (address.equals("00:00:00:00:00:00"))
-                msg = msg + ".\n\nUpdate your server address from 00:00:00:00:00:00 to the correct address on line 35 in the java code";
-            msg = msg +  ".\n\nCheck that the SPP UUID: " + MY_UUID.toString() + " exists on server.\n\n";
-
-            errorExit("Fatal Error", msg);
+            if (spokenText.equals("off")) {
+                mAlarmService.sendData("2");
+                mAlarmService.setAlarmTime(0);
+            }
+            // Do something with spokenText
         }
+
+        super.onActivityResult(requestCode, resultCode, data);
     }
+
+
 
 }

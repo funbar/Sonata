@@ -3,7 +3,7 @@ int  LED = 9;      // LED pin
 
 void setup() {
   Serial.begin(9600); // initialization
-  //pinMode(LED, OUTPUT);
+  pinMode(LED, OUTPUT);
   Serial.println("Press 1 to LED ON or 0 to LED OFF...");
 }
 

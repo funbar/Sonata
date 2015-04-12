@@ -16,6 +16,7 @@ int ledPin3 = 11;
 int photocellReading;
 int LEDbrightness;
 bool isOn = false;
+char incomingByte;
 
 void allOn();
 
@@ -40,31 +41,56 @@ void loop()
  // Serial.println(photocellReading);
 
   LEDbrightness = map(photocellReading, 0, 111, 0, 255);
-  Serial.println(photocellReading);
-  if(photocellReading < 90){
-    allOn();
-  }
-  else if(photocellReading > 30){
-    darkCase();
-  }
-  else
+  //Serial.println(photocellReading);
   
-  reading(photocellReading);
   
- 
+    if (Serial.available() > 0) {  // if the data came
+    
+    incomingByte = Serial.read(); // read byte
+    
+    if(incomingByte == '0') {
+      isOn = false;
+       //digitalWrite(ledPin, LOW);  // if 1, switch LED Off
+       Serial.println("LED OFF. Press 1 to LED ON!");  // print message
+    }
+    if(incomingByte == '1') {
+      isOn = true;
+       //digitalWrite(ledPin, HIGH); // if 0, switch LED on
+       Serial.println("LED ON. Press 0 to LED OFF!");
+    }
+  }
+  
   if (isOn)
   {
-  delay(5000);
-  secondRowLED();
-  delay(5000); 
-  thirdRowLED();
-  delay(5000);
-  fourthRowLED();
-  delay(2000); //short delay for faster response to light.
-  allOff();
-  // if statement here for sleep flag
-  delay(10000);
+    firstRowLED();
+    delay(5000);
+    secondRowLED();
+    delay(5000); 
+    thirdRowLED();
+    delay(5000);
+    fourthRowLED();
+    delay(2000); //short delay for faster response to light.
+    allOff();
+    // if statement here for sleep flag
+    delay(10000);
+    //if(photocellReading < 90){
+      //allOn();
+    //}
+    //else if(photocellReading > 30){
+    //  darkCase();
+    //}
+    //else {
+    //  reading(photocellReading);
+    //}
   }
+  
+ 
+//  if (isOn)
+//  {
+
+//  }
+//  
+  
 
 }
 
