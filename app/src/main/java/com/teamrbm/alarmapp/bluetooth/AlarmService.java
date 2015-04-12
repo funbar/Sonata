@@ -22,9 +22,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.UUID;
 
-/**
- * Created by brandon.burton on 4/11/15.
- */
 public class AlarmService extends Service {
 
     private final IBinder mBinder = new BluetoothBinder();

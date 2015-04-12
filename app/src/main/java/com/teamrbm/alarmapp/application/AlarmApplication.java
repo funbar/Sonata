@@ -12,9 +12,6 @@ import android.widget.Toast;
 import com.teamrbm.alarmapp.bluetooth.AlarmService;
 import com.teamrbm.alarmapp.helper.C;
 
-/**
- * Created by brandon.burton on 4/10/15.
- */
 public class AlarmApplication extends Application
 {
     //are we bound to the service
