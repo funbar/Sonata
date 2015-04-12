@@ -15,6 +15,7 @@ int ledPin2 = 6;
 int ledPin3 = 11;
 int photocellReading;
 int LEDbrightness;
+bool isOn = false;
 
 void allOn();
 
@@ -49,6 +50,10 @@ void loop()
   else
   
   reading(photocellReading);
+  
+ 
+  if (isOn)
+  {
   delay(5000);
   secondRowLED();
   delay(5000); 
@@ -59,6 +64,7 @@ void loop()
   allOff();
   // if statement here for sleep flag
   delay(10000);
+  }
 
 }
 

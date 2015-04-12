@@ -8,6 +8,8 @@ int lightPin = 0;  //define a pin for Photo resistor
 int ledPin = 9;     //define a pin for LED
 int photocellReading;
 int LEDbrightness;
+bool isOn = false;
+char incomingByte; 
 
 void allOn();
 
@@ -15,8 +17,8 @@ void setup()
 {
     Serial.begin(9600);  //Begin serial communcation
     pinMode( ledPin, OUTPUT );
-    getClockInfo();
-    setTime(h,mi,s,0,0,0);
+    //getClockInfo();
+    //setTime(h,mi,s,0,0,0);
     prevDisplay = now();
 }
 
@@ -27,15 +29,57 @@ void loop()
       serialClockDisplay(); 
       Serial.print("\n"); 
     }
-  photocellReading = analogRead(lightPin) - 888;
+    
+  //photocellReading = analogRead(lightPin) - 888;
   //photocellReading = analogRead(lightPin);
- // Serial.println(photocellReading);
-
-  LEDbrightness = map(photocellReading, 0, 111, 0, 255);
-  reading(photocellReading);
+  // Serial.println(photocellReading);
+ 
+  //LEDbrightness = map(photocellReading, 0, 111, 0, 255);
+  //reading(photocellReading);
   
-  delay(2000); //short delay for faster response to light.
+  if (isOn)
+  {
+    digitalWrite(ledPin, HIGH);  // if 1, switch LED Off
+    analogWrite(ledPin, 255);
+  }
+  else
+  {
+    digitalWrite(ledPin, LOW);
+  }
+  
+  if (Serial.available() > 0) {  // if the data came
 
+      Serial.print("HEY");
+
+      incomingByte = Serial.read(); // read byte
+
+      if(incomingByte == '1') {
+         //allOn();
+         isOn = true;
+         
+         //digitalWrite(ledPin, HIGH);  // if 1, switch LED Off
+         //analogWrite(ledPin, 255);
+         Serial.println("LED OFF. Press 1 to LED ON!");  // print message
+         //delay(snooze());
+      }
+      if(incomingByte == '0') {
+         //digitalWrite(ledPin, LOW); // if 0, switch LED on
+         Serial.println("LED ON. Press 0 to LED OFF!");
+         //allOff();
+         isOn = false;
+         //delay(snooze()); //short delay for faster response to light.
+         //allOn();
+         //reading(photocellReading);
+      }
+  }
+  
+  //isOn = true;
+  
+
+}
+
+int snooze() {
+  return 2000;
 }
 
 void reading(int photocellReading)
@@ -180,4 +224,3 @@ void serialClockDisplay(){
       }
       Serial.print(second());
 }
-
