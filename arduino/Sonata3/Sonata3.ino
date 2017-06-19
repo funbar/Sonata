@@ -31,11 +31,7 @@ void setup()
 
 void loop()
 {
-   /*   if( now() != prevDisplay){
-      prevDisplay = now();
-      serialClockDisplay(); 
-      Serial.print("\n"); 
-    }*/
+
   photocellReading = analogRead(lightPin) - 888;
   //photocellReading = analogRead(lightPin);
  // Serial.println(photocellReading);
@@ -83,14 +79,6 @@ void loop()
     //  reading(photocellReading);
     //}
   }
-  
- 
-//  if (isOn)
-//  {
-
-//  }
-//  
-  
 
 }
 
