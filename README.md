@@ -4,4 +4,4 @@
 
 - Arduino source code works concurrently with the android code. 
 - Android app works with the bluetooth module on the Arduino and sends it signals.
-- A light sensor was also used.
+- A photoresistor was also used.
